@@ -4,10 +4,13 @@ import axios from 'axios'
 export default function LandingPage() {
   const handleLogin = async () => {
     try {
+      console.log('Requesting auth URL from:', axios.defaults.baseURL + '/auth/google')
       const response = await axios.get('/auth/google')
+      console.log('Auth URL received:', response.data.authUrl)
       window.location.href = response.data.authUrl
     } catch (error) {
       console.error('Login error:', error)
+      alert('Failed to initiate login: ' + (error.response?.data?.error || error.message))
     }
   }
 

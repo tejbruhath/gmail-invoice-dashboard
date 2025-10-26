@@ -2,8 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import LandingPage from './pages/LandingPage'
-import Dashboard from './pages/Dashboard'
-import SettingsPage from './pages/SettingsPage'
+import NewDashboard from './pages/NewDashboard'
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 axios.defaults.withCredentials = true
@@ -40,11 +39,7 @@ function App() {
       <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
       <Route 
         path="/dashboard" 
-        element={user ? <Dashboard user={user} setUser={setUser} /> : <Navigate to="/" />} 
-      />
-      <Route 
-        path="/settings" 
-        element={user ? <SettingsPage user={user} setUser={setUser} /> : <Navigate to="/" />} 
+        element={user ? <NewDashboard user={user} setUser={setUser} /> : <Navigate to="/" />} 
       />
     </Routes>
   )

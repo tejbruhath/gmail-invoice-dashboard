@@ -41,21 +41,18 @@ const userSchema = new mongoose.Schema({
     },
     categories: {
       type: [String],
-      default: ['food', 'shopping', 'bills', 'entertainment', 'travel', 'healthcare', 'other']
+      default: ['food', 'groceries', 'shopping', 'bills', 'entertainment', 'travel', 'healthcare', 'other']
     }
   }
 }, {
   timestamps: true
 });
 
-// Encrypt tokens before saving
+// NOTE: Tokens are stored in plain text for now
+// In production, use proper encryption (crypto.createCipher) not hashing (bcrypt)
+// Bcrypt is one-way and cannot be decrypted for use with Google API
 userSchema.pre('save', async function(next) {
-  if (this.isModified('accessToken') && this.accessToken) {
-    this.accessToken = await bcrypt.hash(this.accessToken, 10);
-  }
-  if (this.isModified('refreshToken') && this.refreshToken) {
-    this.refreshToken = await bcrypt.hash(this.refreshToken, 10);
-  }
+  // TODO: Implement proper encryption/decryption for tokens
   next();
 });
 

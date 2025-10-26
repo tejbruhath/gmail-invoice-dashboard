@@ -6,13 +6,19 @@ import Invoice from '../models/Invoice.js';
 
 const router = express.Router();
 
-// Trigger invoice fetch
+// Trigger invoice fetch with date range
 router.post('/fetch', authenticate, async (req, res) => {
   try {
-    const { maxResults = 50 } = req.body;
+    console.log('\n📨 Invoice fetch request received');
+    console.log('User ID:', req.user._id);
+    console.log('User email:', req.user.email);
+    
+    const { dateRange = 'thisMonth' } = req.body;
+    console.log('Date range:', dateRange);
 
     // Queue the job
-    const job = await queueInvoiceProcessing(req.user._id, maxResults);
+    const job = await queueInvoiceProcessing(req.user._id, dateRange);
+    console.log('✅ Job queued with ID:', job.id);
 
     res.json({
       message: 'Invoice fetching started',
@@ -20,8 +26,35 @@ router.post('/fetch', authenticate, async (req, res) => {
       status: 'processing'
     });
   } catch (error) {
-    console.error('Fetch invoices error:', error);
+    console.error('❌ Fetch invoices error:', error);
     res.status(500).json({ error: 'Failed to start invoice fetch' });
+  }
+});
+
+// Check job status
+router.get('/job/:jobId', authenticate, async (req, res) => {
+  try {
+    const { invoiceQueue } = await import('../services/queueService.js');
+    const job = await invoiceQueue.getJob(req.params.jobId);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const state = await job.getState();
+    const progress = job.progress();
+
+    res.json({
+      jobId: job.id,
+      state,
+      progress,
+      isCompleted: state === 'completed',
+      isFailed: state === 'failed',
+      result: job.returnvalue // Include job result data (invoices)
+    });
+  } catch (error) {
+    console.error('Job status error:', error);
+    res.status(500).json({ error: 'Failed to get job status' });
   }
 });
 

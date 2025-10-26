@@ -36,7 +36,7 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     required: true,
     lowercase: true,
-    enum: ['food', 'shopping', 'bills', 'entertainment', 'travel', 'healthcare', 'other']
+    enum: ['food', 'groceries', 'shopping', 'bills', 'entertainment', 'travel', 'healthcare', 'other']
   },
   confidence: {
     type: Number,

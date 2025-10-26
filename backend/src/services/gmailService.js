@@ -1,7 +1,6 @@
 import { google } from 'googleapis';
 import User from '../models/User.js';
-import bcrypt from 'bcryptjs';
-import axios from 'axios';
+import { parseEmail } from './extractionService.js';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -9,7 +8,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI
 );
 
-export const fetchInvoicesFromGmail = async (userId, maxResults = 50) => {
+export const fetchInvoicesFromGmail = async (userId, daysBack = 90) => {
   try {
     // Get user with tokens
     const user = await User.findById(userId).select('+accessToken +refreshToken');
@@ -36,137 +35,86 @@ export const fetchInvoicesFromGmail = async (userId, maxResults = 50) => {
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    // Search for invoice-related emails
-    const query = [
-      'invoice OR receipt OR payment OR "order confirmation"',
-      'has:attachment OR newer_than:30d'
-    ].join(' ');
+    // ONLY fetch BNPL invoices from LazyPay and Simpl with date filter
+    const query = `from:(lazypay OR simpl-mails.com) newer_than:${daysBack}d`;
 
-    const response = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults
-    });
+    console.log(`🔍 Fetching LazyPay & Simpl invoices from last ${daysBack} days...`);
+    
+    const allInvoices = [];
+    let pageToken = null;
+    let totalFetched = 0;
+    let pageCount = 0;
 
-    const messages = response.data.messages || [];
-    const emails = [];
-
-    // Fetch each message detail
-    for (const message of messages) {
-      const detail = await gmail.users.messages.get({
+    // Fetch ALL emails within date range
+    do {
+      const response = await gmail.users.messages.list({
         userId: 'me',
-        id: message.id,
-        format: 'full'
+        q: query,
+        maxResults: 500, // Max per page
+        pageToken
       });
 
-      const headers = detail.data.payload.headers;
-      const subject = headers.find(h => h.name === 'Subject')?.value || '';
-      const from = headers.find(h => h.name === 'From')?.value || '';
-      const date = headers.find(h => h.name === 'Date')?.value || '';
+      const messages = response.data.messages || [];
+      totalFetched += messages.length;
+      
+      console.log(`📧 Page ${pageCount + 1}: Found ${messages.length} messages`);
 
-      // Get email body
-      let body = '';
-      if (detail.data.payload.body.data) {
-        body = Buffer.from(detail.data.payload.body.data, 'base64').toString();
-      } else if (detail.data.payload.parts) {
-        const textPart = detail.data.payload.parts.find(p => p.mimeType === 'text/plain');
-        if (textPart?.body?.data) {
-          body = Buffer.from(textPart.body.data, 'base64').toString();
+      // Fetch and parse each message
+      for (const message of messages) {
+        const detail = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id,
+          format: 'full'
+        });
+
+        // Parse email using extraction service
+        const parsed = parseEmail(detail.data);
+        
+        // Skip if parsing returned null (repayment/dues/unknown merchant)
+        if (!parsed) {
+          continue;
         }
-      }
-
-      // Get attachments
-      const attachments = [];
-      if (detail.data.payload.parts) {
-        for (const part of detail.data.payload.parts) {
-          if (part.filename && part.body.attachmentId) {
-            const ext = part.filename.split('.').pop().toLowerCase();
-            if (['pdf', 'png', 'jpg', 'jpeg'].includes(ext)) {
-              const attachment = await gmail.users.messages.attachments.get({
-                userId: 'me',
-                messageId: message.id,
-                id: part.body.attachmentId
-              });
-
-              attachments.push({
-                filename: part.filename,
-                mimeType: part.mimeType,
-                data: attachment.data.data,
-                size: attachment.data.size
-              });
-            }
+        
+        console.log(`  📄 ${parsed.merchant} - ₹${parsed.amount || 'NULL'}`);
+        
+        // Only include if we extracted an amount
+        if (parsed.amount && parsed.amount > 0) {
+          // Check for duplicates (same merchant, amount, and date within 1 day)
+          const isDuplicate = allInvoices.some(inv => {
+            const timeDiff = Math.abs(new Date(inv.date) - new Date(parsed.date));
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            const sameDate = timeDiff < oneDayInMs;
+            const sameAmount = Math.abs(inv.amount - parsed.amount) < 0.01;
+            const sameMerchant = inv.merchant.toLowerCase() === parsed.merchant.toLowerCase();
+            
+            return sameMerchant && sameAmount && sameDate;
+          });
+          
+          if (isDuplicate) {
+            console.log(`  🔄 DUPLICATE: ${parsed.merchant} - ₹${parsed.amount} (already in batch)`);
+            continue;
           }
+          
+          allInvoices.push({
+            ...parsed,
+            emailId: message.id,
+            userId
+          });
         }
       }
 
-      emails.push({
-        id: message.id,
-        subject,
-        from,
-        date: new Date(date),
-        body,
-        attachments,
-        hasAttachment: attachments.length > 0
-      });
-    }
+      // Check if there are more pages
+      pageToken = response.data.nextPageToken;
+      pageCount++;
+      
+    } while (pageToken); // Fetch ALL pages
 
-    return emails;
+    console.log(`✅ Extracted ${allInvoices.length} valid invoices from ${totalFetched} emails (${daysBack} days)`);
+    return allInvoices;
   } catch (error) {
     console.error('Gmail fetch error:', error);
     throw error;
   }
 };
 
-export const processEmailForInvoice = async (email, userId) => {
-  try {
-    let extractedData = null;
-
-    // If has attachments, send to extraction service
-    if (email.attachments.length > 0) {
-      for (const attachment of email.attachments) {
-        const response = await axios.post(
-          `${process.env.EXTRACTION_SERVICE_URL}/extract`,
-          {
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            data: attachment.data
-          }
-        );
-
-        if (response.data.success) {
-          extractedData = response.data.data;
-          break;
-        }
-      }
-    }
-
-    // Fallback to email body extraction
-    if (!extractedData) {
-      const response = await axios.post(
-        `${process.env.EXTRACTION_SERVICE_URL}/extract-text`,
-        {
-          text: email.body,
-          subject: email.subject
-        }
-      );
-
-      if (response.data.success) {
-        extractedData = response.data.data;
-      }
-    }
-
-    return {
-      ...extractedData,
-      emailId: email.id,
-      userId,
-      metadata: {
-        subject: email.subject,
-        from: email.from,
-        hasAttachment: email.hasAttachment
-      }
-    };
-  } catch (error) {
-    console.error('Process email error:', error);
-    throw error;
-  }
-};
+// This function is no longer needed - extraction happens inline in fetchInvoicesFromGmail

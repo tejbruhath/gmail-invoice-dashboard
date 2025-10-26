@@ -1,18 +1,35 @@
 import express from 'express';
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 import User from '../models/User.js';
 
+// Ensure dotenv is loaded
+dotenv.config();
+
 const router = express.Router();
+
+// Hardcoded redirect URI for local development
+const REDIRECT_URI = 'http://localhost:3000/auth/google/callback';
+
+// Debug log
+console.log('🔐 Auth Route - Client ID:', process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + '...');
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
+  REDIRECT_URI
 );
 
 // Generate auth URL
 router.get('/google', (req, res) => {
+  // Validate credentials
+  if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+    return res.status(500).json({ 
+      error: 'Google OAuth not configured. Please set GOOGLE_CLIENT_ID in .env file' 
+    });
+  }
+
   const scopes = [
     'openid',
     'profile',
@@ -23,9 +40,11 @@ router.get('/google', (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent'
+    prompt: 'consent',
+    redirect_uri: REDIRECT_URI
   });
 
+  console.log('Generated auth URL:', authUrl);
   res.json({ authUrl });
 });
 

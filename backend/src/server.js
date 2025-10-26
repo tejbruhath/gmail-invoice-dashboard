@@ -14,6 +14,12 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
 
+// Debug: Log environment variables (remove in production)
+console.log('🔍 Environment Check:');
+console.log('- GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Missing');
+console.log('- GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Missing');
+console.log('- GOOGLE_REDIRECT_URI:', process.env.GOOGLE_REDIRECT_URI);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

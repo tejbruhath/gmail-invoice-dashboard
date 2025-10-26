@@ -61,6 +61,11 @@ router.get('/summary', authenticate, async (req, res) => {
     // Invoice count
     const totalInvoices = await Invoice.countDocuments(dateFilter);
 
+    console.log('📊 DASHBOARD CALCULATION:');
+    console.log('Total Spending:', totalSpending);
+    console.log('Total Invoices:', totalInvoices);
+    console.log('Average:', totalInvoices > 0 ? totalSpending / totalInvoices : 0);
+
     res.json({
       summary: {
         totalSpending,

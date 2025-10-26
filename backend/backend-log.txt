@@ -1,0 +1,36 @@
+
+> gmail-invoice-backend@1.0.0 dev
+> nodemon src/server.js
+
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/server.js`[39m
+≡ƒöÉ Auth Route - Client ID: 985398731191-l6dc71a...
+≡ƒöì Environment Check:
+- GOOGLE_CLIENT_ID: Γ£à Set
+- GOOGLE_CLIENT_SECRET: Γ£à Set
+- GOOGLE_REDIRECT_URI: http://localhost:3000/auth/google/callback
+Γ£à MongoDB Connected: ac-4sjv4md-shard-00-02.8hprckv.mongodb.net
+Γ£à Redis Connected
+≡ƒÜÇ Server running on port 3000
+≡ƒôè Environment: development
+[0mGET /auth/me [32m200[0m 53.953 ms - 551[0m
+[0mGET /auth/me [36m304[0m 30.597 ms - -[0m
+[0mGET /api/dashboard/summary?category=&startDate=&endDate= [32m200[0m 164.201 ms - 5263[0m
+[0mGET /api/invoices?category=&startDate=&endDate=&limit=50 [32m200[0m 253.244 ms - 4935[0m
+[0mGET /api/invoices?category=&startDate=&endDate=&limit=50 [36m304[0m 58.543 ms - -[0m
+[0mGET /api/dashboard/summary?category=&startDate=&endDate= [36m304[0m 165.687 ms - -[0m
+
+≡ƒô¿ Invoice fetch request received
+User ID: new ObjectId('68fdb2e5f19b5c140163cded')
+User email: tejbruhath001@gmail.com
+Max results: 50
+Γ£à Job queued with ID: 9
+[0mPOST /api/invoices/fetch [32m200[0m 326.743 ms - 72[0m
+
+≡ƒÜÇ Starting invoice fetch for user: 68fdb2e5f19b5c140163cded
+≡ƒôº Found 50 messages matching query
+[0mGET /api/invoices?category=&startDate=&endDate=&limit=50 [36m304[0m 70.032 ms - -[0m
+[0mGET /api/dashboard/summary?category=&startDate=&endDate= [36m304[0m 187.411 ms - -[0m
